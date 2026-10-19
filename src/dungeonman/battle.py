@@ -1,6 +1,8 @@
-from dungeonman.ui import render, menu
+"""Headless turn-based combat mechanics."""
+
+import random
+
 from dungeonman.character import Character
-from dungeonman.weapon import Weapon
 from dungeonman.item import Potion
 
 
@@ -8,159 +10,115 @@ class BattleLog:
     def __init__(self):
         self.log: list[str] = []
 
-    def add_log(self, message):
+    def add_log(self, message: str):
         self.log.append(message)
         if len(self.log) > 20:
             self.log.pop(0)
 
 
 class Battle:
-    def __init__(
-        self,
-        players: list[Character],
-        enemies: list[Character],
-    ):
+    def __init__(self, players: list[Character], enemies: list[Character]):
         self.players = players
         self.enemies = enemies
         self.log = BattleLog()
         self.finished = False
+        self.started = False
 
-    def start(self):
+    def start(self) -> None:
+        """Begin a battle; callers drive each turn with player_action/enemy_phase."""
+        if self.started:
+            raise RuntimeError("Battle has already started")
+        self.started = True
         self.log.add_log("Battle Start!")
-        while self.any_players_alive() and self.any_enemies_alive():
-            self.player_phase()
-            self.enemy_phase()
-            for p in self.players:
-                p.defending = False
-        self.end_battle()
 
-    def player_phase(self):
-        for player in self.players:
-            if not player.is_alive():
-                continue
-            enemy = self.get_random_enemy()
-            if not enemy:
-                break
-            while True:
-                render(self.players, self.enemies, self.log.log)
-                print(f"\n{player.name}'s turn:")
-                has_potions = any(isinstance(i, Potion) for i in player.inventory)
-                options = ["Attack", "Defend"]
-                if has_potions:
-                    options.append("Use Potion")
-                options.append("Inventory")
-                choice = menu(options)
-                if choice == 1:
-                    msgs = player.attack(enemy)
-                    for m in msgs:
-                        self.log.add_log(m)
-                    break
-                elif choice == 2:
-                    msgs = player.defend()
-                    for m in msgs:
-                        self.log.add_log(m)
-                    break
-                elif has_potions and choice == 3:
-                    for i, item in enumerate(player.inventory):
-                        if isinstance(item, Potion):
-                            msg = player.use_item(i)
-                            if msg:
-                                self.log.add_log(msg)
-                            break
-                else:
-                    self.inventory_menu(player)
+    def player_action(
+        self,
+        player: Character,
+        action: str,
+        target: Character | None = None,
+        item_index: int | None = None,
+    ) -> list[str]:
+        """Apply one player's attack, defend, or potion action.
 
-    def enemy_phase(self):
+        The caller is responsible for choosing actions and tracking whose turn it is.
+        """
+        if not self.started or self.finished or not self.any_players_alive() or not self.any_enemies_alive():
+            raise RuntimeError("Battle is not active")
+        if player not in self.players or not player.is_alive():
+            raise ValueError("Player is not an active combatant")
+        if action == "attack":
+            if target is None or target not in self.enemies or not target.is_alive():
+                raise ValueError("Target must be a living enemy")
+            messages = player.attack(target)
+        elif action == "defend":
+            messages = player.defend()
+        elif action == "potion":
+            if item_index is None or not 0 <= item_index < len(player.inventory):
+                raise ValueError("Choose a valid potion index")
+            if not isinstance(player.inventory[item_index], Potion):
+                raise ValueError("Chosen item is not a potion")
+            message = player.use_item(item_index)
+            messages = [message] if message else []
+        else:
+            raise ValueError(f"Unknown action: {action}")
+        for message in messages:
+            self.log.add_log(message)
+        return messages
+
+    def enemy_phase(self) -> list[str]:
+        """Let living enemies attack random living players."""
+        if not self.started or self.finished:
+            raise RuntimeError("Battle is not active")
+        messages = []
         for enemy in self.enemies:
             if not enemy.is_alive():
                 continue
             player = self.get_random_player()
             if player:
-                msgs = enemy.attack(player)
-                for m in msgs:
-                    self.log.add_log(m)
+                messages.extend(enemy.attack(player))
+        for message in messages:
+            self.log.add_log(message)
+        return messages
 
-    def inventory_menu(self, player):
-        while True:
-            render(self.players, self.enemies, self.log.log)
-            print(f"\n=== {player.name}'s Inventory ===")
-            if player.equipped_weapon:
-                print(f"  Equipped: {player.equipped_weapon}")
-            else:
-                print("  Equipped: (none)")
-            print()
-            if not player.inventory:
-                print("  (empty)")
-            else:
-                for i, item in enumerate(player.inventory):
-                    item_type = ""
-                    if isinstance(item, Weapon):
-                        item_type = "WPN"
-                    elif isinstance(item, Potion):
-                        item_type = "POT"
-                    prefix = f"[{item_type}]" if item_type else ""
-                    print(f"  {i + 1}. {prefix} {item}")
-            print()
-            print("  [item#] Equip/Use  [u] Unequip  [b] Back")
-            cmd = input("> ").strip().lower()
-            if cmd == "b":
-                break
-            elif cmd == "u":
-                if player.equipped_weapon:
-                    msg = player.unequip()
-                    if msg:
-                        self.log.add_log(msg)
-            elif cmd.isdigit():
-                idx = int(cmd) - 1
-                if 0 <= idx < len(player.inventory):
-                    item = player.inventory[idx]
-                    if isinstance(item, Weapon):
-                        msg = player.equip(idx)
-                    elif isinstance(item, Potion):
-                        msg = player.use_item(idx)
-                    else:
-                        msg = "Can't use that."
-                    if msg:
-                        self.log.add_log(msg)
+    def finish_round(self) -> None:
+        """Clear defending status after the enemy phase."""
+        for player in self.players:
+            player.defending = False
 
-    def end_battle(self):
-        if self.any_players_alive():
-            self.log.add_log("Enemies defeated!")
+    def end_battle(self) -> list[str]:
+        """Finalize rewards once a side is defeated; return result messages."""
+        if not self.started or self.any_players_alive() and self.any_enemies_alive():
+            raise RuntimeError("Battle is not over")
+        if self.finished:
+            return []
+        self.finished = True
+        if not self.any_players_alive():
+            messages = ["You have been defeated..."]
+        else:
+            messages = ["Enemies defeated!"]
             xp_reward = sum(enemy.level * 30 for enemy in self.enemies)
             for player in self.players:
-                msgs = player.add_xp(xp_reward)
-                for m in msgs:
-                    self.log.add_log(m)
+                if not player.is_alive():
+                    continue
+                messages.extend(player.add_xp(xp_reward))
                 for enemy in self.enemies:
                     if enemy.equipped_weapon:
-                        msg = player.pick_up(enemy.equipped_weapon)
-                        self.log.add_log(msg)
+                        messages.append(player.pick_up(enemy.equipped_weapon))
                         enemy.equipped_weapon = None
-            render(self.players, self.enemies, self.log.log)
-            for player in self.players:
-                print(f"\n{player.name} wins!")
-                print(f"Lv {player.level} ({player.xp}/{player.xp_to_next} XP)")
-                if player.inventory:
-                    names = [item.name for item in player.inventory]
-                    print(f"Inventory: {', '.join(names)}")
-            input("\nPress Enter to exit...")
-        else:
-            render(self.players, self.enemies, self.log.log)
-            print("\nYou have been defeated...")
-            input("\nPress Enter to exit...")
+        for message in messages:
+            self.log.add_log(message)
+        return messages
 
-    def get_random_enemy(self):
-        import random
+    def get_random_enemy(self) -> Character | None:
         enemies = [e for e in self.enemies if e.is_alive()]
         return random.choice(enemies) if enemies else None
 
-    def get_random_player(self):
-        import random
+    def get_random_player(self) -> Character | None:
         players = [p for p in self.players if p.is_alive()]
         return random.choice(players) if players else None
 
-    def any_players_alive(self):
+    def any_players_alive(self) -> bool:
         return any(p.is_alive() for p in self.players)
 
-    def any_enemies_alive(self):
+    def any_enemies_alive(self) -> bool:
         return any(e.is_alive() for e in self.enemies)

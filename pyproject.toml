@@ -1,7 +1,7 @@
 [project]
 name = "dungeonman"
 version = "0.1.0"
-description = "Add your description here"
+description = "Mechanics for Text based RPG games"
 readme = "README.md"
 authors = [
     { name = "avycado13", email = "108358183+avycado13@users.noreply.github.com" }

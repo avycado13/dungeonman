@@ -1,3 +1,10 @@
+"""Character and Inventory
+This Module has the Character class which defines the stats of the character for battles and manages the character's inventory.
+
+Exported Classes:
+    Character: class for Characters in Game
+"""
+
 from typing import Self
 import random
 
@@ -6,6 +13,8 @@ from dungeonman.weapon import Weapon
 
 
 class Character:
+    """Stores Character Information and manages inventory and weapons of character"""
+
     def __init__(
         self,
         name: str,

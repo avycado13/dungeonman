@@ -1,5 +1,6 @@
 from dungeonman.battle import Battle
 from dungeonman.character import Character
+from dungeonman.cli_battle import play_battle
 from dungeonman.item import Potion
 from dungeonman.map import GameMap, Room
 from dungeonman.ui import prompt_command, show_room
@@ -126,7 +127,7 @@ def explore(game_map: GameMap, hero: Character):
 
         if room.has_living_enemies():
             battle = Battle(players=[hero], enemies=room.enemies)
-            battle.start()
+            play_battle(battle)
             if not hero.is_alive():
                 return
             continue
