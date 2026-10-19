@@ -16,6 +16,8 @@ or use the fight systems in your own game
 
 ## Documentation
 
+The docs for the library are hosted on [GitHub Pages](https://avycado13.github.io/dungeonman/)
+
 Build the API reference from the project's Google-style docstrings:
 
 ```bash
