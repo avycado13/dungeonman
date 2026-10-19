@@ -6,5 +6,8 @@ dist/
 wheels/
 *.egg-info
 
+# Sphinx output
+_build/
+
 # Virtual environments
 .venv

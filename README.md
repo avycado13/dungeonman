@@ -14,6 +14,17 @@ or use the fight systems in your own game
    from dungeonman.character import Character
  ```
 
+## Documentation
+
+Build the API reference from the project's Google-style docstrings:
+
+```bash
+uv sync --group dev
+uv run sphinx-build -b html . _build/html
+```
+
+Open `_build/html/index.html` in a browser. Alternatively, run `uv run make html`.
+
 ## Features
 - Rooms that can connect to each other with corridors
 - Items in Rooms
