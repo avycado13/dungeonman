@@ -27,7 +27,6 @@ napoleon_numpy_docstring = False
 # Avoid duplicate entries for dataclass fields documented in Attributes sections.
 napoleon_use_ivar = True
 
-templates_path = ['_templates']
 exclude_patterns = ['_build', '.venv', 'Thumbs.db', '.DS_Store']
 
 
@@ -36,4 +35,3 @@ exclude_patterns = ['_build', '.venv', 'Thumbs.db', '.DS_Store']
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'alabaster'
-html_static_path = ['_static']
