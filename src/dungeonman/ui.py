@@ -43,6 +43,14 @@ def render(players, enemies, log):
     print("─" * WIDTH)
 
 
+def show_room(text: str):
+    print(text)
+
+
+def prompt_command() -> str:
+    return input("\n> ").strip().lower()
+
+
 def menu(options):
     for i, option in enumerate(options, 1):
         print(f"{i}. {option}")
